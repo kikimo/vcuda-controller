@@ -159,13 +159,19 @@ static void change_token(int delta) {
   } while (!CAS(&g_cur_cuda_cores, cuda_cores_before, cuda_cores_after));
 }
 
+static long time_diff(struct timeval *start, struct timeval *end) {
+  return (end->tv_sec - start->tv_sec) * 1000 + (end->tv_usec - start->tv_usec) / 1000;
+}
+
 static void rate_limiter(int grids, int blocks) {
   int before_cuda_cores = 0;
   int after_cuda_cores = 0;
   int kernel_size = grids;
+  struct timeval start, end;
 
   LOGGER(5, "grid: %d, blocks: %d", grids, blocks);
   LOGGER(5, "launch kernel %d, curr core: %d", kernel_size, g_cur_cuda_cores);
+  gettimeofday(&start, NULL);
   if (g_vcuda_config.enable) {
     do {
     CHECK:
@@ -178,6 +184,8 @@ static void rate_limiter(int grids, int blocks) {
       after_cuda_cores = before_cuda_cores - kernel_size;
     } while (!CAS(&g_cur_cuda_cores, before_cuda_cores, after_cuda_cores));
   }
+  gettimeofday(&end, NULL);
+  LOGGER(5, "sched latency: %ld", time_diff(&start, &end));
 }
 
 int delta(int up_limit, int user_current, int share) {
